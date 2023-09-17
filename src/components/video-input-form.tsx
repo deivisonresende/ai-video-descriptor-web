@@ -79,6 +79,15 @@ export function VideoInputForm (){
 
     setStatus('uploading')
     const uploadResponse = await api.post('videos/upload', form, { headers: { 'Content-Type': 'multipart/form-data' } })
+
+    const videoId = uploadResponse.data.video.id
+
+    setStatus("transcribing")
+    const transcriptionResponse = await api.post(`videos/${videoId}/transcription`, { prompt })
+
+    const transcription = transcriptionResponse.data.transcript
+
+    setStatus('success')
   }
 
   const previewURL = useMemo(() => {
