@@ -39,7 +39,7 @@ export function App() {
     <div className="min-h-screen flex flex-col">
       <div className="px-6 py-3 flex items-center justify-between border-b">
         <div>
-          <h1 className="text-xl font-bold">ai.video descriptor</h1>
+          <h1 className="text-xl font-bold">ai.video</h1>
         </div>
         
         <div className="flex items-center gap-3">
