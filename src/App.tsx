@@ -1,22 +1,39 @@
-import {  Github, Wand2 } from 'lucide-react'
+import { Github, Wand2 } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useMemo, useState } from 'react';
 
 import { Button } from "./components/ui/button";
 import { Label } from './components/ui/label';
+import { PromptSelect } from './components/prompt-select';
 import { Separator } from "./components/ui/separator";
 import { Slider } from './components/ui/slider';
 import { Textarea } from "./components/ui/textarea";
 import { VideoInputForm } from './components/video-input-form';
-import { PromptSelect } from './components/prompt-select';
-import { useState } from 'react';
+import { useCompletion } from 'ai/react';
 
 export function App() {
-  const [promptTemplate, setPromptTemplate] = useState('')
   const [temperature, setTemperature] = useState(0.5)
+  const [videoId, setVideoId] = useState<string | null>(null)
+  const [isTranscribing, setIsTranscribing] = useState(false)
 
-  function handlePromptSelected (template: string){
-    setPromptTemplate(template)
-  }
+  const {
+    input,
+    setInput,
+    handleInputChange,
+    handleSubmit,
+    completion,
+    isLoading
+  } = useCompletion({
+    api: `http://localhost:3333/v1/videos/transcription/completion`,
+    body: {
+      videoId,
+      temperature
+    },
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  })
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -45,12 +62,14 @@ export function App() {
             <Textarea 
               className="resize-none p-4 leading-relaxed"
               placeholder="Inclua o prompt para a IA..."
-              value={promptTemplate}
+              value={input}
+              onChange={handleInputChange}
             />
             <Textarea 
               className="resize-none p-4 leading-relaxed"
               placeholder="Resultado gerado pela IA..."
               readOnly={true}
+              value={completion}
             />
           </div>
           <p className="text-xs text-muted-foreground">
@@ -59,17 +78,17 @@ export function App() {
         </div>
 
         <aside className="w-80 space-y-6">
-            <VideoInputForm />
+            <VideoInputForm onVideoUploaded={{ setVideoId, setIsTranscribing }}/>
 
             <Separator />
 
-            <form action="" className='space-y-6'>
+            <form onSubmit={handleSubmit} className='space-y-6'>
             <div className='space-y-2'>
                 <Label>
                   Prompt
                 </Label>
                
-                <PromptSelect onPromptSelected={handlePromptSelected}/>
+                <PromptSelect disabled={!videoId} onPromptSelected={setInput}/>
               </div>
 
               <div className='space-y-2'>
@@ -92,6 +111,8 @@ export function App() {
                   Temperatura
                 </Label>
                 <Slider
+                  disabled={!videoId}
+                  style={!videoId ? { opacity: 0.4 } : {}}
                   defaultValue={[0.5]}
                   value={[temperature]}
                   onValueChange={ value => setTemperature(value[0] )}
@@ -104,10 +125,28 @@ export function App() {
 
               <Separator />
 
-              <Button type='submit' className='w-full'> 
-                Executar
-                <Wand2  className="w-4 h-4 ml-2"/>
-              </Button>
+              <TooltipProvider delayDuration={100} skipDelayDuration={500}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                   <span tabIndex={0}>
+                    <Button type='submit' className='w-full disabled:opacity-40' disabled={isLoading || !videoId}> 
+                        Executar
+                        <Wand2  className="w-4 h-4 ml-2"/>
+                      </Button>
+                   </span>
+                  </TooltipTrigger>
+                  <TooltipContent hidden={!!videoId || isLoading} className='bg-muted mb-4'>
+                    <p className='text-foreground'> {
+                      isTranscribing 
+                        ? 'Aguarde a transcrição para executar'
+                        : !isLoading 
+                          ? 'Carregue um vídeo para executar'
+                          : ''
+                      }
+                      </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </form>
         </aside>
       </main>

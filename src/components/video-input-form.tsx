@@ -1,77 +1,65 @@
-import { Separator } from "@radix-ui/react-select";
+import { ChangeEvent, FormEvent, useMemo, useRef, useState } from "react";
 import { FileVideo, Upload } from "lucide-react";
-import { Textarea } from "./ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
-import { ChangeEvent, FormEvent, useMemo, useRef, useState } from "react";
-import { loadFFmpeg } from "@/lib/ffmpeg";
-import { fetchFile } from "@ffmpeg/util";
+import { Separator } from "@radix-ui/react-select";
+import { Textarea } from "./ui/textarea";
 import { api } from "@/lib/axios";
+import { convertVideoToAudio } from "@/lib/ffmpeg";
 
-type Status = 'waiting' | 'converting' | 'uploading' | 'transcribing' | 'success'
+type Status = 'waiting' | 'fileSelected' | 'converting' | 'uploading' | 'transcribing' | 'success' 
 
 const statusMessages = {
   waiting: 'Carregar vídeo',
-  converting: 'Convertendo em áudio...',
+  fileSelected: 'Carregar vídeo',
+  converting: 'Convertendo em áudio ',
   uploading: 'Carregando...',
   transcribing: 'Transcrevendo...',
-  success: 'Concluído'
+  success: 'Transcrição concluída'
 }
 
-export function VideoInputForm (){
+interface VideoInputFormProps {
+  onVideoUploaded: { 
+    setVideoId: (videoId: string | null) => void
+    setIsTranscribing: (isTranscribing: boolean) => void
+  }
+}
+
+export function VideoInputForm (props: VideoInputFormProps){
   const [videoFile, setVideoFile] = useState<File | null>(null)
   const [status, setStatus] = useState<Status>('waiting')
+  const [progress, setProgress] = useState(0)
   const promptInputRef = useRef<HTMLTextAreaElement>(null)
 
   function handleFileSelected(event: ChangeEvent<HTMLInputElement>){
     setStatus('waiting')
+
+    props.onVideoUploaded.setVideoId(null)
 
     const { files } = event.currentTarget
 
     if(!files) return
 
     const selectedFile = files[0]
+
+    if(selectedFile) setStatus('fileSelected')
+
     setVideoFile(selectedFile)
-  }
-
-  async function convertVideoToAudio(video: File){
-    const ffmpeg = await loadFFmpeg()
-
-    await ffmpeg.writeFile('input.mp4', await fetchFile(video))
-
-    ffmpeg.on('progress', progress => {
-      console.log('progress: ', Math.round(progress.progress * 100))
-    })
-
-    await ffmpeg.exec([
-      '-i',
-      'input.mp4',
-      '-map',
-      '0:a',
-      '-b:a',
-      '20k',
-      '-acodec',
-      'libmp3lame',
-      'output.mp3'
-    ])
-
-    const data = await ffmpeg.readFile('output.mp3')
-
-    const audioFileBlob = new Blob([data], { type: 'audio/mpeg' })
-    const audioFile = new File([audioFileBlob], 'audio.mp3', { type: 'audio/mpeg' })
-
-    return audioFile
   }
 
   async function handleUploadVideo(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+
+    props.onVideoUploaded.setIsTranscribing(true)
 
     const prompt = promptInputRef.current?.value
 
     if(!videoFile) return
 
     setStatus('converting')
-    const audioFile = await convertVideoToAudio(videoFile)
+    const audioFile = await convertVideoToAudio({ video: videoFile, setProgress })
 
     const form = new FormData()
 
@@ -83,11 +71,14 @@ export function VideoInputForm (){
     const videoId = uploadResponse.data.video.id
 
     setStatus("transcribing")
-    const transcriptionResponse = await api.post(`videos/${videoId}/transcription`, { prompt })
-
-    const transcription = transcriptionResponse.data.transcript
+    await api.post(`videos/${videoId}/transcription`, { 
+      prompt 
+    })
 
     setStatus('success')
+
+    props.onVideoUploaded.setIsTranscribing(false)
+    props.onVideoUploaded.setVideoId(videoId)
   }
 
   const previewURL = useMemo(() => {
@@ -127,7 +118,7 @@ export function VideoInputForm (){
       <div className='space-y-2'>
         <Label htmlFor='transcription_prompt'>Prompt de transcrição</Label>
         <Textarea
-          disabled={ status !== 'waiting' }
+          disabled={ !['waiting', 'fileSelected'].includes(status)}
           ref={promptInputRef}
           id="transcription_prompt" 
           className='h-20 leading-relaxed resize-none' 
@@ -135,10 +126,29 @@ export function VideoInputForm (){
           />
       </div>
 
-      <Button disabled={ status !== 'waiting' } type="submit" className='w-full'> 
-        { statusMessages[status] }
-        { status === 'waiting' ? <Upload className='w-4 h-4 ml-2'/> : null }
-      </Button>
+      <TooltipProvider delayDuration={100} skipDelayDuration={500}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span tabIndex={0}>
+                <Button disabled={ status !== 'fileSelected' } type="submit" className='w-full disabled:opacity-40 disabled:cursor-not-allowed mt-4'> 
+                  { statusMessages[status] + (status === 'converting' ? + progress + '%' : '') }
+                  { status === 'fileSelected' || status === 'waiting' ? <Upload className='w-4 h-4 ml-2'/> : null }
+                </Button>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent hidden={!['waiting', 'success'].includes(status)} className='bg-muted mb-4'>
+            <p className='text-foreground'> 
+              {
+                status === 'success' 
+                  ? 'Selecione outro vídeo ou realize a execução'
+                  : status === 'waiting' 
+                    ? 'Selecione um vídeo'
+                    : ''
+              }
+            </p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </form>
   )
 }
