@@ -3,7 +3,7 @@
   <h1 style="font-size: 40px"> ai.video</h1>
 </div>
 
- Uma aplicação  que permite aos usuários realizar diversas ações a partir de um vídeo de entrada. Utilizando um conjunto de tecnologias modernas, ela oferece funcionalidades avançadas para melhorar a eficiência na criação de conteúdo para o YouTube.
+ Uma aplicação que permite aos usuários realizar diversas ações a partir de um vídeo de entrada. Utilizando um conjunto de tecnologias modernas, ela oferece funcionalidades avançadas para melhorar a eficiência na criação de conteúdo para o YouTube.
 
 ![Sugestões geradas](.github/fullfiled.png)
 
@@ -33,12 +33,12 @@ Passos para execução:
 1.  Clone o repositório da aplicação para o seu sistema local:
 
 ``` 
-git clone https://github.com/deivisonresende/ai-video-descriptor-api.git
+git clone https://github.com/deivisonresende/ai-video-web.git
 ```
 
 2.  Navegue até o diretório da aplicação:
  ```
- cd ai-video-descriptor-web
+ cd ai-video-web
  ```
 
 3.  Instale as dependências:
